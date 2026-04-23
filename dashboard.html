@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AttendX - Attendance Register</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body class="dashboard-page">
+
+<header class="topbar">
+    <div class="brand">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo" alt="Logo">
+        <h2>AttendX</h2>
+    </div>
+    <div class="menu" onclick="toggleSidebar()">☰</div>
+</header>
+
+<div id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+        <h3>Attendance Insights</h3>
+        <button type="button" class="sidebar-close" onclick="toggleSidebar()">✕</button>
+    </div>
+
+    <div class="sidebar-tabs">
+        <button type="button" class="sidebar-tab active" data-panel="panel-overall">📊 Overall</button>
+        <button type="button" class="sidebar-tab" data-panel="panel-subjects">📚 Subject-wise</button>
+        <button type="button" class="sidebar-tab" data-panel="panel-targets">🎯 Target Check</button>
+        <button type="button" class="sidebar-tab" data-panel="panel-status">🚦 Status</button>
+    </div>
+
+    <div class="sidebar-content">
+        <div id="panel-overall" class="sidebar-panel active"></div>
+        <div id="panel-subjects" class="sidebar-panel"></div>
+        <div id="panel-targets" class="sidebar-panel"></div>
+        <div id="panel-status" class="sidebar-panel"></div>
+    </div>
+</div>
+
+<div class="title-bar">
+    <h3>Attendance Register</h3>
+</div>
+
+<div class="month-bar">
+    <label>Select Month: </label>
+    <input type="month" value="{{ selected_month }}" onchange="changeMonth(this.value)">
+</div>
+
+<div class="container">
+
+{% for row in rows %}
+<form method="POST" action="{{ url_for('save_attendance') }}">
+<div class="row-card" data-day="{{ row.day }}">
+    <input type="hidden" name="date" value="{{ row.date }}">
+    <input type="hidden" name="month" value="{{ selected_month }}">
+
+    <div class="date-box">
+        <strong>{{ row.date }}</strong>
+        <div class="date-sub">{{ row.day }}</div>
+    </div>
+
+    <div class="tt-box">
+        {% if row.is_saturday %}
+            <select name="timetable_used" class="sat-select">
+                <option value="">Select Saturday timetable</option>
+                <option value="Monday" {% if row.timetable_used == "Monday" %}selected{% endif %}>Use Monday</option>
+                <option value="Tuesday" {% if row.timetable_used == "Tuesday" %}selected{% endif %}>Use Tuesday</option>
+                <option value="Wednesday" {% if row.timetable_used == "Wednesday" %}selected{% endif %}>Use Wednesday</option>
+                <option value="Thursday" {% if row.timetable_used == "Thursday" %}selected{% endif %}>Use Thursday</option>
+                <option value="Friday" {% if row.timetable_used == "Friday" %}selected{% endif %}>Use Friday</option>
+            </select>
+            <div class="sat-label">
+                {% if row.timetable_used in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] %}
+                    Saturday using {{ row.timetable_used }}
+                {% else %}
+                    Saturday not added yet
+                {% endif %}
+            </div>
+        {% else %}
+            <input type="hidden" name="timetable_used" value="{{ row.timetable_used }}">
+            <div class="normal-day-label">{{ row.day }}</div>
+        {% endif %}
+    </div>
+
+    <div class="holiday-box">
+        {% if row.is_sunday %}
+            <span class="holiday-text">Sunday Holiday</span>
+            <input type="hidden" name="holiday" value="on">
+        {% else %}
+            <label class="holiday-label">
+                <input
+                    type="checkbox"
+                    name="holiday"
+                    class="holiday-toggle"
+                    {% if row.holiday %}checked{% endif %}
+                >
+                Holiday
+            </label>
+        {% endif %}
+    </div>
+
+    <div class="periods {% if row.holiday %}hidden-periods{% endif %}">
+        {% if row.periods and not row.is_sunday %}
+            {% for i in range(7) %}
+                {% set subject_text = row.periods[i] if row.periods|length > i and row.periods[i] else "" %}
+                {% set saved_status = row.saved_periods[i] if row.saved_periods|length > i and row.saved_periods[i] else "" %}
+                {% set saved_actual = row.saved_actual_subjects[i] if row.saved_actual_subjects|length > i and row.saved_actual_subjects[i] else subject_text %}
+                {% set is_lab_choice = subject_text and ('NL' in subject_text and 'MP' in subject_text) %}
+
+                <div class="period">
+                    <div class="subject">
+                        {% if is_lab_choice %}
+                            <div class="subject-title">Lab</div>
+                            <select class="lab-type-select" data-base-subject="{{ subject_text }}">
+                                <option value="NL" {% if saved_actual == "NL" %}selected{% endif %}>NL</option>
+                                <option value="MP" {% if saved_actual == "MP" %}selected{% endif %}>MP</option>
+                            </select>
+                        {% else %}
+                            {{ subject_text }}
+                        {% endif %}
+                    </div>
+
+                    <input type="hidden" class="status-input" name="period_{{ i }}" value="{{ saved_status }}">
+                    <input type="hidden" class="subject-actual-input" name="subject_actual_{{ i }}" value="{{ saved_actual if saved_actual else subject_text }}">
+
+                    <div class="pa-row">
+                        <button type="button" onclick="mark(this,'P')" class="present {% if saved_status == 'P' %}active{% endif %}">P</button>
+                        <button type="button" onclick="mark(this,'A')" class="absent {% if saved_status == 'A' %}active{% endif %}">A</button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-periods">
+                {% if row.is_sunday %}
+                    Sunday holiday
+                {% elif row.is_saturday %}
+                    Select a timetable if this Saturday is working
+                {% else %}
+                    No attendance for this day
+                {% endif %}
+            </div>
+
+            {% for i in range(7) %}
+                <input type="hidden" name="period_{{ i }}" value="">
+                <input type="hidden" name="subject_actual_{{ i }}" value="">
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {% if not row.is_sunday %}
+        <button type="submit" class="save-btn">Save</button>
+    {% endif %}
+</div>
+</form>
+{% endfor %}
+
+</div>
+
+<script>
+const rowsData = {{ rows | tojson }};
+const semesterRowsData = {{ semester_rows | tojson }};
+
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("open");
+}
+
+document.querySelectorAll(".sidebar-tab").forEach(btn => {
+    btn.addEventListener("click", function () {
+        document.querySelectorAll(".sidebar-tab").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".sidebar-panel").forEach(p => p.classList.remove("active"));
+
+        this.classList.add("active");
+        document.getElementById(this.dataset.panel).classList.add("active");
+    });
+});
+
+function changeMonth(value) {
+    window.location.href = "/dashboard?month=" + value;
+}
+
+function isAmbiguousLab(subject) {
+    if (!subject) return false;
+    const upper = subject.toUpperCase();
+    return upper.includes("NL") && upper.includes("MP");
+}
+
+function updateHolidayView(row, checked) {
+    const periods = row.querySelector(".periods");
+    if (!periods) return;
+
+    if (checked) {
+        periods.classList.add("hidden-periods");
+    } else {
+        periods.classList.remove("hidden-periods");
+    }
+}
+
+document.querySelectorAll(".holiday-toggle").forEach(cb => {
+    updateHolidayView(cb.closest(".row-card"), cb.checked);
+
+    cb.addEventListener("change", function () {
+        updateHolidayView(this.closest(".row-card"), this.checked);
+    });
+});
+
+function mark(btn, value) {
+    const period = btn.closest(".period");
+    const hidden = period.querySelector(".status-input");
+
+    hidden.value = value;
+
+    const presentBtn = period.querySelector(".present");
+    const absentBtn = period.querySelector(".absent");
+
+    if (presentBtn) presentBtn.classList.remove("active");
+    if (absentBtn) absentBtn.classList.remove("active");
+
+    btn.classList.add("active");
+}
+
+function buildPeriodHtml(subject, index, savedStatus = "", savedActual = "") {
+    const isLab = isAmbiguousLab(subject);
+    const actualSubject = savedActual || (isLab ? "NL" : (subject || ""));
+
+    if (!subject) {
+        return `
+            <div class="period">
+                <div class="subject"></div>
+                <input type="hidden" class="status-input" name="period_${index}" value="">
+                <input type="hidden" class="subject-actual-input" name="subject_actual_${index}" value="">
+                <div class="pa-row">
+                    <button type="button" onclick="mark(this,'P')" class="present ${savedStatus === 'P' ? 'active' : ''}">P</button>
+                    <button type="button" onclick="mark(this,'A')" class="absent ${savedStatus === 'A' ? 'active' : ''}">A</button>
+                </div>
+            </div>
+        `;
+    }
+
+    if (isLab) {
+        return `
+            <div class="period">
+                <div class="subject">
+                    <div class="subject-title">Lab</div>
+                    <select class="lab-type-select" data-base-subject="${subject}">
+                        <option value="NL" ${actualSubject === 'NL' ? 'selected' : ''}>NL</option>
+                        <option value="MP" ${actualSubject === 'MP' ? 'selected' : ''}>MP</option>
+                    </select>
+                </div>
+                <input type="hidden" class="status-input" name="period_${index}" value="${savedStatus}">
+                <input type="hidden" class="subject-actual-input" name="subject_actual_${index}" value="${actualSubject}">
+                <div class="pa-row">
+                    <button type="button" onclick="mark(this,'P')" class="present ${savedStatus === 'P' ? 'active' : ''}">P</button>
+                    <button type="button" onclick="mark(this,'A')" class="absent ${savedStatus === 'A' ? 'active' : ''}">A</button>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="period">
+            <div class="subject">${subject}</div>
+            <input type="hidden" class="status-input" name="period_${index}" value="${savedStatus}">
+            <input type="hidden" class="subject-actual-input" name="subject_actual_${index}" value="${actualSubject}">
+            <div class="pa-row">
+                <button type="button" onclick="mark(this,'P')" class="present ${savedStatus === 'P' ? 'active' : ''}">P</button>
+                <button type="button" onclick="mark(this,'A')" class="absent ${savedStatus === 'A' ? 'active' : ''}">A</button>
+            </div>
+        </div>
+    `;
+}
+
+function buildSaturdayPeriods(periodsDiv, subjects) {
+    let html = "";
+
+    if (!subjects || subjects.length === 0) {
+        html += `<div class="no-periods">Select a timetable if this Saturday is working</div>`;
+        for (let i = 0; i < 7; i++) {
+            html += `<input type="hidden" name="period_${i}" value="">`;
+            html += `<input type="hidden" name="subject_actual_${i}" value="">`;
+        }
+        periodsDiv.innerHTML = html;
+        return;
+    }
+
+    for (let i = 0; i < 7; i++) {
+        html += buildPeriodHtml(subjects[i] || "", i, "", "");
+    }
+
+    periodsDiv.innerHTML = html;
+}
+
+document.querySelectorAll(".sat-select").forEach(select => {
+    select.addEventListener("change", function () {
+        const row = this.closest(".row-card");
+        const periodsDiv = row.querySelector(".periods");
+        const label = row.querySelector(".sat-label");
+        const selectedDay = this.value;
+
+        if (!selectedDay) {
+            buildSaturdayPeriods(periodsDiv, []);
+            label.innerText = "Saturday not added yet";
+            return;
+        }
+
+        fetch(`/get_timetable/${selectedDay}`)
+            .then(res => res.json())
+            .then(subjects => {
+                buildSaturdayPeriods(periodsDiv, subjects);
+                label.innerText = `Saturday using ${selectedDay}`;
+                periodsDiv.classList.remove("hidden-periods");
+
+                const holidayToggle = row.querySelector(".holiday-toggle");
+                if (holidayToggle) holidayToggle.checked = false;
+            });
+    });
+});
+
+document.addEventListener("change", function (e) {
+    if (e.target.classList.contains("lab-type-select")) {
+        const period = e.target.closest(".period");
+        const hidden = period.querySelector(".subject-actual-input");
+        hidden.value = e.target.value;
+    }
+});
+
+function getResolvedSubject(row, index) {
+    const savedActual = row.saved_actual_subjects && row.saved_actual_subjects[index];
+    const base = row.periods && row.periods[index];
+
+    if (savedActual) return savedActual;
+    if (base) return base;
+    return "";
+}
+
+function calculateStats() {
+    let totalSemesterDays = semesterRowsData.length;
+    let sundayCount = 0;
+    let knownWorkingDays = 0;
+    let selectedSaturdayCount = 0;
+
+    let totalKnownPeriods = 0;
+    let markedPeriods = 0;
+    let presentPeriods = 0;
+    let absentPeriods = 0;
+
+    let subjectMap = {};
+    let pendingLabSlots = 0;
+
+    semesterRowsData.forEach(row => {
+        if (row.is_sunday) {
+            sundayCount++;
+            return;
+        }
+
+        if (row.holiday) {
+            return;
+        }
+
+        if (row.is_saturday) {
+            if (!(row.timetable_used && row.periods && row.periods.length > 0)) {
+                return;
+            }
+            selectedSaturdayCount++;
+        }
+
+        let dayHasAnyPeriod = false;
+
+        for (let i = 0; i < 7; i++) {
+            const baseSubject = row.periods && row.periods[i] ? row.periods[i] : "";
+            if (!baseSubject) continue;
+
+            dayHasAnyPeriod = true;
+            totalKnownPeriods++;
+
+            const status = row.saved_periods && row.saved_periods[i] ? row.saved_periods[i] : "";
+            const resolvedSubject = getResolvedSubject(row, i);
+
+            if (status === "P") {
+                presentPeriods++;
+                markedPeriods++;
+            } else if (status === "A") {
+                absentPeriods++;
+                markedPeriods++;
+            }
+
+            let subjectKey = resolvedSubject || baseSubject;
+
+            if (isAmbiguousLab(baseSubject) && !resolvedSubject) {
+                subjectKey = "NL/MP (choose)";
+                pendingLabSlots++;
+            }
+
+            if (!subjectMap[subjectKey]) {
+                subjectMap[subjectKey] = {
+                    total: 0,
+                    present: 0,
+                    absent: 0,
+                    marked: 0
+                };
+            }
+
+            subjectMap[subjectKey].total++;
+
+            if (status === "P") {
+                subjectMap[subjectKey].present++;
+                subjectMap[subjectKey].marked++;
+            } else if (status === "A") {
+                subjectMap[subjectKey].absent++;
+                subjectMap[subjectKey].marked++;
+            }
+        }
+
+        if (dayHasAnyPeriod) {
+            knownWorkingDays++;
+        }
+    });
+
+    const remainingPeriods = totalKnownPeriods - markedPeriods;
+    const overallPct = totalKnownPeriods ? ((presentPeriods / totalKnownPeriods) * 100).toFixed(1) : "0.0";
+
+    document.getElementById("panel-overall").innerHTML = `
+        <div class="report-card">
+            <h4>Semester Summary</h4>
+            <p><strong>Total semester dates:</strong> ${totalSemesterDays}</p>
+            <p><strong>Sundays:</strong> ${sundayCount}</p>
+            <p><strong>Known working days now:</strong> ${knownWorkingDays}</p>
+            <p><strong>Selected working Saturdays:</strong> ${selectedSaturdayCount}</p>
+            <p><strong>Total known periods now:</strong> ${totalKnownPeriods}</p>
+            <p><strong>Marked periods:</strong> ${markedPeriods}</p>
+            <p><strong>Present:</strong> ${presentPeriods}</p>
+            <p><strong>Absent:</strong> ${absentPeriods}</p>
+            <p><strong>Unmarked remaining periods:</strong> ${remainingPeriods}</p>
+            <p><strong>Overall attendance based on known periods:</strong> ${overallPct}%</p>
+        </div>
+    `;
+
+    let subjectHtml = `<div class="report-card"><h4>Subject Report</h4>`;
+    const subjectNames = Object.keys(subjectMap).sort();
+
+    if (subjectNames.length === 0) {
+        subjectHtml += `<p>No subject data yet.</p>`;
+    } else {
+        subjectNames.forEach(subject => {
+            const s = subjectMap[subject];
+            const pct = s.total ? ((s.present / s.total) * 100).toFixed(1) : "0.0";
+            subjectHtml += `
+                <div class="subject-report-item">
+                    <div class="subject-report-head">${subject}</div>
+                    <p>Total periods: ${s.total}</p>
+                    <p>Present: ${s.present}</p>
+                    <p>Absent: ${s.absent}</p>
+                    <p>Marked: ${s.marked}</p>
+                    <p>Attendance: ${pct}%</p>
+                </div>
+            `;
+        });
+    }
+
+    if (pendingLabSlots > 0) {
+        subjectHtml += `<p class="note-text">Pending lab split slots: ${pendingLabSlots}. Choose NL or MP on those days for exact split.</p>`;
+    }
+
+    subjectHtml += `</div>`;
+    document.getElementById("panel-subjects").innerHTML = subjectHtml;
+
+    let targetHtml = `<div class="report-card"><h4>Target Check</h4>`;
+    [75, 80, 90].forEach(target => {
+        const requiredPresent = Math.ceil((target / 100) * totalKnownPeriods);
+        const needMore = Math.max(0, requiredPresent - presentPeriods);
+        const possible = needMore <= remainingPeriods;
+        const canStillMiss = Math.max(0, remainingPeriods - needMore);
+
+        targetHtml += `
+            <div class="target-item">
+                <div class="target-title">${target}% target</div>
+                <p>Required present total: ${requiredPresent}</p>
+                <p>Need to attend from remaining: ${needMore}</p>
+                <p>You can still miss: ${canStillMiss}</p>
+                <p>Status: ${possible ? "Possible with current known schedule" : "Not possible unless more working periods get added"}</p>
+            </div>
+        `;
+    });
+    targetHtml += `</div>`;
+
+    document.getElementById("panel-targets").innerHTML = targetHtml;
+
+    let riskHtml = `<div class="report-card"><h4>Status</h4>`;
+    riskHtml += `<p><strong>Overall:</strong> ${overallPct}%</p>`;
+
+    const riskySubjects = [];
+    const cautionSubjects = [];
+
+    subjectNames.forEach(subject => {
+        const s = subjectMap[subject];
+        const pct = s.total ? (s.present / s.total) * 100 : 0;
+
+        if (pct < 75) {
+            riskySubjects.push(`${subject} - ${pct.toFixed(1)}%`);
+        } else if (pct < 80) {
+            cautionSubjects.push(`${subject} - ${pct.toFixed(1)}%`);
+        }
+    });
+
+    if (riskySubjects.length === 0 && cautionSubjects.length === 0) {
+        riskHtml += `<p class="good-text">Good. No subject is below 80% right now.</p>`;
+    } else {
+        if (riskySubjects.length > 0) {
+            riskHtml += `<div class="risk-block"><div class="risk-heading">Below 75%</div>`;
+            riskySubjects.forEach(item => {
+                riskHtml += `<p class="risk-text">${item}</p>`;
+            });
+            riskHtml += `</div>`;
+        }
+
+        if (cautionSubjects.length > 0) {
+            riskHtml += `<div class="risk-block"><div class="risk-heading caution">75% to below 80%</div>`;
+            cautionSubjects.forEach(item => {
+                riskHtml += `<p class="caution-text">${item}</p>`;
+            });
+            riskHtml += `</div>`;
+        }
+    }
+
+    riskHtml += `</div>`;
+    document.getElementById("panel-status").innerHTML = riskHtml;
+}
+
+calculateStats();
+</script>
+
+</body>
+</html>

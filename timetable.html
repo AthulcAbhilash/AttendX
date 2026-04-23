@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AttendX - Timetable</title>
+
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo">
+        <div>
+            <h1>AttendX</h1>
+            <p>Setup Your Weekly Timetable</p>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+    <section class="card full-width">
+
+        <!-- HEADER ROW -->
+        <div class="header-row">
+            <h2>Weekly Timetable</h2>
+
+            <div class="header-actions">
+                <a href="/">
+                    <button type="button" class="secondary-btn">⬅ Back</button>
+                </a>
+
+                <a href="/dashboard">
+                    <button type="button" class="secondary-btn">Dashboard</button>
+                </a>
+            </div>
+        </div>
+
+        <p class="subtitle">Select subject for each period</p>
+
+        <form method="POST">
+
+            {% set days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] %}
+
+            {% for day in days %}
+                <div class="day-block">
+                    <h3>{{ day }}</h3>
+
+                    <div class="period-grid">
+                        {% for i in range(7) %}
+                            <select name="{{ day }}_{{ i }}">
+                                <option value="">Free</option>
+
+                                {% for sub in data.subjects %}
+                                    <option value="{{ sub }}">{{ sub }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <!-- SAVE BUTTON RIGHT -->
+            <div class="save-row">
+                <button type="submit" class="primary-btn">Save Timetable</button>
+            </div>
+
+        </form>
+
+    </section>
+</main>
+
+</body>
+</html>

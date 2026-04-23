@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Attendance Manager</title>
+
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="logo">
+            <div>
+                <h1>AttendX</h1>
+                <p>Smart Attendance Tracking System</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="card">
+            <h2>Semester Setup</h2>
+
+            <form method="POST">
+                <div class="form-group">
+                    <label for="semester_start">Semester Start Date</label>
+                    <input type="date" id="semester_start" name="semester_start" value="{{ data.semester_start }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="semester_end">Semester End Date</label>
+                    <input type="date" id="semester_end" name="semester_end" value="{{ data.semester_end }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="subjects">Subjects (comma separated)</label>
+                    <input type="text" id="subjects" name="subjects"
+                           placeholder="GT, Phy, DS, DBMS"
+                           value="{{ ', '.join(data.subjects) }}">
+                </div>
+
+                <button type="submit">Save Setup</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>Current Saved Data</h2>
+            <p><strong>Semester Start:</strong> {{ data.semester_start or 'Not set' }}</p>
+            <p><strong>Semester End:</strong> {{ data.semester_end or 'Not set' }}</p>
+            <p><strong>Subjects:</strong>
+                {% if data.subjects %}
+                    {{ data.subjects | join(', ') }}
+                {% else %}
+                    Not added
+                {% endif %}
+            </p>
+        </section>
+    </main>
+</body>
+</html>
